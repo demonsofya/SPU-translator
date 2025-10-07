@@ -17,6 +17,34 @@ size_t GetFileSize(const char *file_name) {
     return file_info.st_size;
 }
 
+void ChangeEntersToZeros(struct StringsInfo *ptr_array, size_t array_size) {
+
+    assert(ptr_array);
+
+    for (int curr_pos = 1; curr_pos < array_size; curr_pos++) {
+        *(ptr_array[curr_pos].string_ptr - 1) = '\0';
+    }
+}
+
+void ChangeCommentsToZeros(struct StringsInfo *ptr_array, size_t array_size) {
+
+    assert(ptr_array);
+
+    char *curr_pointer = NULL;
+
+    for (size_t curr_num = 0; curr_num < array_size; curr_num++) {
+
+        curr_pointer = strchr(ptr_array[curr_num].string_ptr, ';');
+
+        if (curr_pointer != NULL)
+            curr_pointer[0] = '\0';
+
+//PrintStringInFile(debug_ptr, text[curr_num].string_ptr);
+
+//printf("\n\nstring number %d is %s, size is %d\n", curr_num + 1, text[curr_num].string_ptr, text[curr_num].string_size   );
+   }
+}
+
 char *GetBuffer(const char *file_name, size_t *file_size) {
 
     assert(file_name);
@@ -88,6 +116,8 @@ struct StringsInfo *GetStruct_PtrStingsArray(char *buffer, size_t text_size) {
 //printf("\n\nstring number %d is %s, size is %d\n", curr_num + 1, text[curr_num].string_ptr, text[curr_num].string_size   );
    }
 //fclose(debug_ptr);
+    ChangeEntersToZeros(text, text_size);
+    ChangeCommentsToZeros(text, text_size);
 
     return text;
 }
