@@ -119,6 +119,7 @@ struct StringsInfo *GetStruct_PtrStingsArray(char *buffer, size_t text_size) {
     ChangeEntersToZeros(text, text_size);
     ChangeCommentsToZeros(text, text_size);
 
+
     return text;
 }
 

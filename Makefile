@@ -2,10 +2,10 @@ FLAGS=-Wshadow -Winit-self -Wredundant-decls -Wcast-align -Wundef -Wfloat-equal 
 
 all: Assembler
 
-Assembler : main.o buffer.o stack.o
-	g++ main.o buffer.o stack.o -o Assembler $(FLAGS)
+Assembler : main.o buffer.o stack.o assembler.o 
+	g++ main.o buffer.o stack.o assembler.o -o Assembler $(FLAGS)
 
-main.o : main.cpp buffer.h stack.h commands.h
+main.o : main.cpp buffer.h stack.h commands.h assembler.h
 	g++ main.cpp -c $(FLAGS)
 
 buffer.o : buffer.cpp buffer.h
@@ -13,6 +13,9 @@ buffer.o : buffer.cpp buffer.h
 
 stack.o : stack.cpp stack.h
 	g++ -c stack.cpp $(FLAGS)
+
+assembler.o : assembler.cpp assembler.h buffer.h commands.h
+	g++ -c assembler.cpp $(FLAGS)
 
 .PHONY: clean
 
