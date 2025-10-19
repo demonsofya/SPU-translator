@@ -1,0 +1,1 @@
+cp task_bin.txt ../SPU

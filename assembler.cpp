@@ -1,255 +1,355 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
-#include "buffer.h"
+#include "lib/onegin/buffer.h"
+//#include "buffer.h"
 #include "../include/commands.h"
 #include "assembler.h"
 
-//-----------------------------------------------------------------------------
+//=============================================================================
 
-//#define input_file_name "Task6.txt"
+char **GetStringsPtrArrayFromFile(const char *file_name, int *ptrs_to_code_lines_array_size) {
 
-char **GetStringsPtrArray(const char *file_name, int *ptr_array_size) {
+    assert(file_name);
+    assert(ptrs_to_code_lines_array_size);
 
     size_t file_size = 0;
     char *buffer = GetBuffer(file_name, &file_size);
 
-    *ptr_array_size = StringsCount(buffer);
-    char **strings_ptr_array = GetStringPtrArray(buffer, *ptr_array_size);
+    assert(buffer);
+
+    *ptrs_to_code_lines_array_size = StringsCount(buffer);
+    char **strings_ptr_array = GetStringPtrArray(buffer, *ptrs_to_code_lines_array_size);
+
+    assert(strings_ptr_array);
 
     return strings_ptr_array;
 }
 
+
+//=============================================================================
+
 int GetCurrentOpcode(const char* command) {
 
-    for (int
+    assert(command);
 
-    if (strcmp(command, "PUSH") == 0)     // цикл
-        return PUSH;
+ON_DEBUG(printf("Curr command is %s\n", command));
 
-    if (strcmp(command, "OUT") == 0)
-        return OUT;
+    for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
 
-    if (strcmp(command, "ADD") == 0)
-        return ADD;
+        if (strcmp(command, commands_array[curr_num].command_name) == 0)
+            return commands_array[curr_num].command_number;
 
-    if (strcmp(command, "SUB") == 0)
-        return SUB;
-
-    if (strcmp(command, "MUL") == 0)
-        return MUL;
-
-    if (strcmp(command, "DIV") == 0)
-        return DIV;
-
-    if (strcmp(command, "POW") == 0)
-        return POW;
-
-    if (strcmp(command, "SQRT") == 0)
-        return SQRT;
-
-    if (strcmp(command, "PUSHREG") == 0)
-        return PUSHREG;
-
-    if (strcmp(command, "POPREG") == 0)
-        return POPREG;
-
-    if (strcmp(command, "JUMP") == 0)
-        return JUMP;
-
-    if (strcmp(command, "IN") == 0)
-        return IN;
-
-    if (strcmp(command, "JB") == 0)
-        return JB;
-
-    if (strcmp(command, "JBE") == 0)
-        return JBE;
-
-    if (strcmp(command, "JA") == 0)
-        return JA;
-
-    if (strcmp(command, "JAE") == 0)
-        return JAE;
-
-    if (strcmp(command, "JE") == 0)
-        return JE;
-
-    if (strcmp(command, "JNE") == 0)
-        return JNE;
-
-    if (strcmp(command, "HLT") == 0)
-        return HLT;
-
-    if (strcmp(command, "CALL") == 0)
-        return CALL;
-
-    if (strcmp(command, "RET") == 0)
-        return RET;
-
-    if (strcmp(command, "PUSHM") == 0)
-        return PUSHM;
-
-    if (strcmp(command, "POPM") == 0)
-        return POPM;
-
-    return -1;
+    return Command_Asm_Error;
 }
+
+//=============================================================================
+
+int CheckRegister(char *reg) {
+
+    if (reg == NULL)
+        return Register_Asm_Error;
+
+    for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++)
+
+        if (strcmp(reg, registers_array[curr_num].reg_name) == 0)
+            return registers_array[curr_num].reg_num;
+
+    return Register_Asm_Error;
+}
+
+
+//=============================================================================
+
+
+void FillCommandWithNumberArgument(int *output_arr, char *command_string, int *labels, int *command_num) {
+
+    assert(output_arr);
+    assert(command_string);
+    assert(labels);
+    assert(command_num);
+
+    int curr_number = 0;
+
+    char label = '\0';
+    sscanf(command_string, " %c", &label);
+
+    if (label == ':') {
+        sscanf(command_string, " %*c%d", &curr_number);
+        output_arr[(*command_num)++] = labels[curr_number];
+
+    } else {
+        sscanf(command_string, "%d", &curr_number);
+        output_arr[(*command_num)++] = curr_number;
+    }
+}
+
+
+//-----------------------------------------------------------------------------
+
+void FillCommandWithRegisterArgiment(int *output_arr, char *command_string,
+                                     int *labels, int *command_num) {
+
+    assert(output_arr);
+    assert(command_string);
+    assert(labels);
+    assert(command_num);
+
+    if (*command_num < 0)
+        return;
+
+    char reg[2] = "";
+
+    sscanf(command_string, "%s", reg);
+    output_arr[(*command_num)++] = CheckRegister(reg);
+}
+
+
+//-----------------------------------------------------------------------------
+
+void FillCommandWithASMArgiment(int *output_arr, char *command_string, int *labels, int *command_num) {
+
+    assert(output_arr);
+    assert(command_string);
+    assert(labels);
+    assert(command_num);
+
+    if (*command_num < 0)
+        return;
+
+    char reg[2] = "";
+
+    sscanf(command_string, " [%[A-Z]", reg);
+    output_arr[(*command_num)++] = CheckRegister(reg);
+}
+
+//=============================================================================
+
+bool CheckIfCommandLabel(char *command) {
+
+    assert(command);
+
+    if (command[0] == ':')
+        return true;
+
+    return false;
+}
+
+//-----------------------------------------------------------------------------
+
+void TranslateCommand(int *output_arr, int current_opcode, char *command_string,
+                  int *labels, int *command_num) {
+
+    assert(output_arr);
+    assert(command_string);
+    assert(labels);
+    assert(command_num);
+
+    switch (current_opcode) {
+        case PUSH:
+        case JUMP:
+        case JB:
+        case JBE:
+        case JE:
+        case JNE:
+        case JA:
+        case JAE:
+        case CALL:
+            FillCommandWithNumberArgument(output_arr, command_string, labels, command_num);
+            break;
+
+        case PUSHREG:
+        case POPREG:
+            FillCommandWithRegisterArgiment(output_arr, command_string, labels, command_num);
+            break;
+
+        case PUSHM:
+        case POPM:
+            FillCommandWithASMArgiment(output_arr, command_string, labels, command_num);
+            break;
+
+        default:
+            break;
+    }
+}
+
+//-----------------------------------------------------------------------------
+
+void FillLabel(char *command, int *labels, int command_num, int *counter) {
+
+    assert(command);
+    assert(labels);
+    assert(counter);
+
+    int label_number = 0;
+    sscanf(command + 1, "%d", &label_number);
+
+    labels[label_number] = command_num;
+    (*counter)++;
+
+ON_DEBUG(printf("Label number is %d, current command is %d\n", label_number, command_num));
+
+}
+
+//=============================================================================
+
+int FillCodeArray(int *output_arr, int ptrs_to_code_lines_array_size,
+                  char **ptrs_to_code_lines_array, int *labels) {
+
+    assert(output_arr);
+    assert(ptrs_to_code_lines_array_size);
+    assert(labels);
+
+    char command[10] = "";
+    int counter = 0, command_num = 0;
+
+    while (counter < ptrs_to_code_lines_array_size) {
+        int command_size = 0;
+        sscanf(ptrs_to_code_lines_array[counter], "%s%n", command, &command_size);
+
+        if (strcmp(command, "") == 0) {
+            counter++;
+            continue;
+        }
+
+        if (CheckIfCommandLabel(command)) {
+
+            FillLabel(command, labels, command_num, &counter);
+            continue;
+        }
+
+        int current_opcode = GetCurrentOpcode(command);
+        output_arr[command_num++] = current_opcode;
+
+        TranslateCommand(output_arr, current_opcode, ptrs_to_code_lines_array[counter] + command_size,
+                     labels, &command_num);
+
+        counter++;
+    }
+
+    return command_num;
+}
+
+//-----------------------------------------------------------------------------
 
 int *CreateCodeArray(const char *input_file_name, int *commands_count) {
 
-    char command[10] = "";
+    assert(input_file_name);
+    assert(commands_count);
 
-    int labels[10] = {};
+    int labels[LABELS_ARRAY_SIZE] = {};
 
-    int ptr_array_size = 0;
-    char **text_ptr_array = GetStringsPtrArray(input_file_name, &ptr_array_size);
+    int ptrs_to_code_lines_array_size = 0;
+    char **ptrs_to_code_lines_array = GetStringsPtrArrayFromFile(input_file_name,
+                                                         &ptrs_to_code_lines_array_size);
 
-printf("Strings count is %d\n\n", ptr_array_size);
+ON_DEBUG(printf("Strings count is %d\n\n", ptrs_to_code_lines_array_size));
 
-    int *output_arr = (int *) calloc(ptr_array_size * 2 + 2, sizeof(int));
+    int *output_arr = (int *) calloc(ptrs_to_code_lines_array_size * 2 + INFORMATION_MEMORY_COUNT,
+                                     sizeof(int));
+
+    int command_num = 0;
 
     output_arr[0] = Version;
     output_arr[1] = Constant;
 
-    int counter = 0;
-    int command_num = 2;
 
-    for (int i = 0; i < 2; i++) {
-        counter = 0;
-        command_num = 2;
-
-        while (counter < ptr_array_size) {
-            int command_size = 0;
-            sscanf(text_ptr_array[counter], "%s%n", command, &command_size);
-
-            if (command[0] == ':') {
-                int label_number = 0;
-                sscanf(text_ptr_array[counter], ":%d", &label_number);
-
-                labels[label_number] = command_num - 2;
-printf("Label number is %d, current command is %d\n", label_number, command_num - 2);
-
-                counter++;
-                continue;
-            }
-
-            int current_opcode = GetCurrentOpcode(command);
-            output_arr[command_num++] = current_opcode;
-
-            switch (current_opcode) {
-                case PUSH:
-                case JUMP:
-                case JB:
-                case JBE:
-                case JE:
-                case JNE:
-                case JA:
-                case JAE:
-                case CALL: {
-                    int curr_number = 0;
-
-                    char label = '\0';
-                    sscanf(text_ptr_array[counter] + command_size, " %c", &label);
-
-                    if (label == ':') {
-                        sscanf(text_ptr_array[counter] + command_size, " %*c%d", &curr_number);
-                        output_arr[command_num++] = labels[curr_number];
-
-                    } else {
-                        sscanf(text_ptr_array[counter] + command_size, "%d", &curr_number);
-                        output_arr[command_num++] = curr_number;
-                    }
-
-                }
-                    break;
-
-                case PUSHREG:
-                case POPREG: {
-                    char reg[2] = "";
-                    sscanf(text_ptr_array[counter] + command_size, "%s", reg);  // TODO: fuction
-
-                    if (strcmp(reg, "AX") == 0)
-                        output_arr[command_num++] = AX;
-
-                    else if (strcmp(reg, "BX") == 0)
-                        output_arr[command_num++] = BX;
-
-                    else if(strcmp(reg, "CX") == 0)
-                        output_arr[command_num++] = CX;
-
-                    else if(strcmp(reg, "DX") == 0)
-                        output_arr[command_num++] = DX;
-
-                    else if(strcmp(reg, "RV") == 0)
-                        output_arr[command_num++] = RV;
-
-                }
-                    break;
-
-                case PUSHM:
-                case POPM: {
-                    char reg[2] = "";
-                    sscanf(text_ptr_array[counter] + command_size, "[%s]", reg);
-
-                    if (strcmp(reg, "AX") == 0)
-                        output_arr[command_num++] = AX;
-
-                    else if (strcmp(reg, "BX") == 0)
-                        output_arr[command_num++] = BX;
-
-                    else if(strcmp(reg, "CX") == 0)
-                        output_arr[command_num++] = CX;
-
-                    else if(strcmp(reg, "DX") == 0)
-                        output_arr[command_num++] = DX;
-
-                    else if(strcmp(reg, "RV") == 0)
-                        output_arr[command_num++] = RV;
-                }
-                    break;
-
-                default:
-                    break;
-            }
-
-            counter++;
-
-        }
-    }
+    for (int i = 0; i < 2; i++)
+        command_num = FillCodeArray(output_arr + INFORMATION_MEMORY_COUNT,
+                                    ptrs_to_code_lines_array_size, ptrs_to_code_lines_array, labels);
 
     *commands_count = command_num;
 
-    for (int i = 0; i < 10; i++) {
-        printf("[%d] ", labels[i]);
-    }
+ON_DEBUG(LabelsDump(labels));
 
     return output_arr;
 }
 
+//=============================================================================
+
+void LabelsDump(int *labels) {
+
+    assert(labels);
+
+    printf("------LABELS---------\n\n");
+
+    for (int curr_num = 0; curr_num < LABELS_ARRAY_SIZE; curr_num++)
+        printf("[%d] ", labels[curr_num]);
+
+    printf("\n\n-----------------------\n");
+}
+
+
+//=============================================================================
+
+
 void CreateBinaryFile(const char *file_name, int commands_count, int *output_arr) {
+
+    assert(file_name);
 
     FILE *output_file = fopen(file_name, "wb");
 
-    fwrite(output_arr, sizeof(int), commands_count, output_file);
+    fwrite(output_arr, sizeof(int), commands_count + INFORMATION_MEMORY_COUNT, output_file);
 
     fclose(output_file);
 }
 
+//-----------------------------------------------------------------------------
+
+bool CheckIfCommandHaveArgument(int command) {
+
+    switch(command) {
+        case POPREG:
+            return true;
+        case PUSHREG:
+            return true;
+        case PUSH:
+            return true;
+        case JUMP:
+            return true;
+        case JB:
+            return true;
+        case JBE:
+            return true;
+        case JA:
+            return true;
+        case JAE:
+            return true;
+        case JE:
+            return true;
+        case JNE:
+            return true;
+        case CALL:
+            return true;
+        case PUSHM:
+            return true;
+        case POPM:
+            return true;
+
+        default:
+            return false;
+    }
+
+    return false;
+}
+
+//-----------------------------------------------------------------------------
+
 void CreateNormalFile(const char *file_name, int commands_count, int *output_arr) {
+
+    assert(file_name);
 
     FILE *output_file = fopen(file_name, "w");
 
-    fprintf(output_file, "FILE VERSION: %d\n", Version);
-    fprintf(output_file, "CODE: %d\n\n", Constant);
+    fprintf(output_file, "FILE VERSION: %d\n", output_arr[0]);
+    fprintf(output_file, "CODE: %d\n\n", output_arr[1]);
 
-    for (int curr_num = 2; curr_num < commands_count; curr_num++) {      // функция
-        if (output_arr[curr_num] == POPREG || output_arr[curr_num] == PUSHREG || output_arr[curr_num] == PUSH ||
-            output_arr[curr_num] == JUMP   || output_arr[curr_num] == JB      || output_arr[curr_num] == JBE  ||
-            output_arr[curr_num] == JA     || output_arr[curr_num] == JAE     || output_arr[curr_num] == JE   ||
-            output_arr[curr_num] == JNE    || output_arr[curr_num] == CALL    ||
-            output_arr[curr_num] == PUSHM  || output_arr[curr_num] == POPM)
+    for (int curr_num = INFORMATION_MEMORY_COUNT;
+         curr_num < commands_count + INFORMATION_MEMORY_COUNT; curr_num++) {      // функция, и в ней умоляю сделай свитч кейс
+
+        if (CheckIfCommandHaveArgument(output_arr[curr_num]))
 
             fprintf(output_file, "%d ", output_arr[curr_num++]);
 
@@ -258,3 +358,6 @@ void CreateNormalFile(const char *file_name, int commands_count, int *output_arr
 
     fclose(output_file);
 }
+
+
+//=============================================================================
