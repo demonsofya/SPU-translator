@@ -7,6 +7,7 @@
 //#include "buffer.h"
 #include "../include/commands.h"
 #include "assembler.h"
+#include "string.h"
 
 //=============================================================================
 
@@ -23,93 +24,147 @@ char **GetStringsPtrArrayFromFile(const char *file_name, int *ptrs_to_code_lines
     *ptrs_to_code_lines_array_size = StringsCount(buffer);
     char **strings_ptr_array = GetStringPtrArray(buffer, *ptrs_to_code_lines_array_size);
 
+//ON_DEBUG(printf("First string is %s\n\n", strings_ptr_array[0]));
+
     assert(strings_ptr_array);
 
     return strings_ptr_array;
 }
 
-
 //=============================================================================
 
-int GetCurrentOpcode(const char* command) {
-
-    assert(command);
-
-ON_DEBUG(printf("Curr command is %s\n", command));
+void CountHashTable() {
 
     for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
+        commands_array[curr_num].hash = CountStringHash(commands_array[curr_num].command_name);
 
-        if (strcmp(command, commands_array[curr_num].command_name) == 0)
-            return commands_array[curr_num].command_number;
 
-    return Command_Asm_Error;
 }
 
 //=============================================================================
 
-int CheckRegister(char *reg) {
-
-    if (reg == NULL)
-        return Register_Asm_Error;
-
-    for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++)
-
-        if (strcmp(reg, registers_array[curr_num].reg_name) == 0)
-            return registers_array[curr_num].reg_num;
-
-    return Register_Asm_Error;
-}
-
-
-//=============================================================================
-
-
-void FillCommandWithNumberArgument(int *output_arr, char *command_string, int *labels, int *command_num) {
+void FillCurrentOpcode(int *output_arr, char *command_string,
+                       int *labels, int *command_num, char *argument_string, int *error) {
 
     assert(output_arr);
     assert(command_string);
     assert(labels);
     assert(command_num);
 
-    int curr_number = 0;
+ON_DEBUG(printf("Curr command is %s\n", command_string));
+
+    int curr_hash = CountStringHash(command_string);
+
+    for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
+
+        //if (strcmp(command_string, commands_array[curr_num].command_name) == 0) {
+        if (commands_array[curr_num].hash == curr_hash) {
+            output_arr[(*command_num)++] = commands_array[curr_num].command_number;
+
+            if (commands_array[curr_num].agrument_type == NUMBER_ARGUMENT)
+                FillCommandWithNumberArgument(output_arr, argument_string, labels, command_num, error);
+
+            else if (commands_array[curr_num].agrument_type == REGISTER_ARGUMENT)
+                FillCommandWithRegisterArgiment(output_arr, argument_string, labels, command_num, error);
+
+            else if (commands_array[curr_num].agrument_type == RAM_ARGUMENT)
+                FillCommandWithRAMArgiment(output_arr, argument_string, labels, command_num, error);
+
+            return;
+
+        }
+
+    *error |= COMMAND_ASM_ERROR;
+}
+
+//=============================================================================
+
+int CheckRegister(char *reg, int *error) {
+
+    if (reg == NULL)
+        return REGISTER_ASM_ERROR;
+
+ON_DEBUG(printf("Register is %s, size is %d\n\n", reg, strlen(reg)));
+
+    for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++) {
+
+        if (strcmp(reg, registers_array[curr_num].reg_name) == 0)
+            return registers_array[curr_num].reg_num;
+
+ON_DEBUG(printf("Curr register number %d is %s\n", curr_num, registers_array[curr_num].reg_name));
+
+    }
+
+    *error |= REGISTER_ASM_ERROR;
+ON_DEBUG(printf("Error with register. Register is %s\n", reg));
+    return REGISTER_ASM_ERROR;
+}
+
+
+//=============================================================================
+
+
+void FillCommandWithNumberArgument(int *output_arr, char *command_string,
+                                   int *labels, int *command_num, int *error) {
+
+    assert(output_arr);
+    assert(command_string);
+    assert(labels);
+    assert(command_num);
+
+    int curr_number = 0, readen_elements_count = 0;
 
     char label = '\0';
     sscanf(command_string, " %c", &label);
 
     if (label == ':') {
-        sscanf(command_string, " %*c%d", &curr_number);
+        char curr_string_label[10] = "";
+        readen_elements_count = sscanf(command_string, " %*c%s", curr_string_label);
+
+        curr_number = CountStringHash(curr_string_label);
+        //readen_elements_count = sscanf(command_string, " %*c%d", &curr_number);
         output_arr[(*command_num)++] = labels[curr_number];
 
     } else {
-        sscanf(command_string, "%d", &curr_number);
+        readen_elements_count = sscanf(command_string, "%d", &curr_number);
         output_arr[(*command_num)++] = curr_number;
     }
+
+    if (readen_elements_count != 1)
+        *error |= NUMBER_ARGUMENT_ASM_ERROR;
 }
 
 
 //-----------------------------------------------------------------------------
 
 void FillCommandWithRegisterArgiment(int *output_arr, char *command_string,
-                                     int *labels, int *command_num) {
+                                     int *labels, int *command_num, int *error) {
 
     assert(output_arr);
     assert(command_string);
     assert(labels);
     assert(command_num);
 
+    int readen_elements_count = 0;
+
     if (*command_num < 0)
         return;
 
-    char reg[2] = "";
+    char reg[10] = "";
 
-    sscanf(command_string, "%s", reg);
-    output_arr[(*command_num)++] = CheckRegister(reg);
+    readen_elements_count = sscanf(command_string, " %s", reg);
+
+    if (readen_elements_count != 1)
+        *error |= REGISTER_ASM_ERROR;
+
+    output_arr[(*command_num)++] = CheckRegister(reg, error);
 }
 
 
 //-----------------------------------------------------------------------------
 
-void FillCommandWithASMArgiment(int *output_arr, char *command_string, int *labels, int *command_num) {
+void FillCommandWithRAMArgiment(int *output_arr, char *command_string,
+                                int *labels, int *command_num, int *error) {
 
     assert(output_arr);
     assert(command_string);
@@ -119,10 +174,22 @@ void FillCommandWithASMArgiment(int *output_arr, char *command_string, int *labe
     if (*command_num < 0)
         return;
 
-    char reg[2] = "";
+    char reg[10] = "";
+    char end_symbol = '\0';
 
-    sscanf(command_string, " [%[A-Z]", reg);
-    output_arr[(*command_num)++] = CheckRegister(reg);
+    int readen_elements_count = 0;
+
+    readen_elements_count = sscanf(command_string, " [%[A-Z]%c", reg, &end_symbol);
+ON_DEBUG(printf("Curr RAM register is %s\n", reg));
+
+    if (end_symbol != ']' || readen_elements_count != 2) {
+        *error |= SINTAXYS_ASM_ERROR;
+ON_DEBUG(printf("Wrong register sintaxys.\n"));
+        (*command_num)++;
+
+    } else {
+        output_arr[(*command_num)++] = CheckRegister(reg, error);
+    }
 }
 
 //=============================================================================
@@ -139,52 +206,23 @@ bool CheckIfCommandLabel(char *command) {
 
 //-----------------------------------------------------------------------------
 
-void TranslateCommand(int *output_arr, int current_opcode, char *command_string,
-                  int *labels, int *command_num) {
-
-    assert(output_arr);
-    assert(command_string);
-    assert(labels);
-    assert(command_num);
-
-    switch (current_opcode) {
-        case PUSH:
-        case JUMP:
-        case JB:
-        case JBE:
-        case JE:
-        case JNE:
-        case JA:
-        case JAE:
-        case CALL:
-            FillCommandWithNumberArgument(output_arr, command_string, labels, command_num);
-            break;
-
-        case PUSHREG:
-        case POPREG:
-            FillCommandWithRegisterArgiment(output_arr, command_string, labels, command_num);
-            break;
-
-        case PUSHM:
-        case POPM:
-            FillCommandWithASMArgiment(output_arr, command_string, labels, command_num);
-            break;
-
-        default:
-            break;
-    }
-}
-
-//-----------------------------------------------------------------------------
-
-void FillLabel(char *command, int *labels, int command_num, int *counter) {
+void FillLabel(char *command, int *labels, int command_num, int *counter, int *error) {
 
     assert(command);
     assert(labels);
     assert(counter);
 
-    int label_number = 0;
-    sscanf(command + 1, "%d", &label_number);
+    int label_number = 0, readen_elements_count = 0;
+
+    char curr_string_label[10] = "";
+    readen_elements_count = sscanf(command, " %*c%s", curr_string_label);
+
+    label_number = CountStringHash(curr_string_label);
+        //readen_elements_count = sscanf(command_string, " %*c%d", &curr_number);
+        //output_arr[(*command_num)++] = labels[curr_number];
+
+    if (readen_elements_count != 1)
+        *error |= LABELS_ASM_ERROR;
 
     labels[label_number] = command_num;
     (*counter)++;
@@ -202,37 +240,47 @@ int FillCodeArray(int *output_arr, int ptrs_to_code_lines_array_size,
     assert(ptrs_to_code_lines_array_size);
     assert(labels);
 
-    char command[10] = "";
+    CountHashTable();
+
+    char command_string[10] = "";
     int counter = 0, command_num = 0;
 
     while (counter < ptrs_to_code_lines_array_size) {
         int command_size = 0;
-        sscanf(ptrs_to_code_lines_array[counter], "%s%n", command, &command_size);
+        sscanf(ptrs_to_code_lines_array[counter], "%s%n", command_string, &command_size);
 
-        if (strcmp(command, "") == 0) {
+        int error = NO_ASM_ERROR;
+
+        if (strcmp(command_string, "") == 0) {
             counter++;
             continue;
         }
 
-        if (CheckIfCommandLabel(command)) {
-
-            FillLabel(command, labels, command_num, &counter);
+        if (CheckIfCommandLabel(command_string)) {
+            FillLabel(command_string, labels, command_num, &counter, &error);
             continue;
         }
 
-        int current_opcode = GetCurrentOpcode(command);
-        output_arr[command_num++] = current_opcode;
+        FillCurrentOpcode(output_arr, command_string, labels, &command_num,
+                          ptrs_to_code_lines_array[counter] + command_size, &error);
 
-        TranslateCommand(output_arr, current_opcode, ptrs_to_code_lines_array[counter] + command_size,
-                     labels, &command_num);
+        if (error != NO_ASM_ERROR) {
+            ErrorDump(&error);
+            LabelsDump(labels);
+
+            return command_num;
+        }
 
         counter++;
+
     }
 
     return command_num;
 }
 
 //-----------------------------------------------------------------------------
+
+bool CheckStrings();
 
 int *CreateCodeArray(const char *input_file_name, int *commands_count) {
 
@@ -247,17 +295,16 @@ int *CreateCodeArray(const char *input_file_name, int *commands_count) {
 
 ON_DEBUG(printf("Strings count is %d\n\n", ptrs_to_code_lines_array_size));
 
-    int *output_arr = (int *) calloc(ptrs_to_code_lines_array_size * 2 + INFORMATION_MEMORY_COUNT,
+    int *output_arr = (int *) calloc(ptrs_to_code_lines_array_size * 2 + SIZE_OF_HEADER_IN_BYTES,
                                      sizeof(int));
 
     int command_num = 0;
 
-    output_arr[0] = Version;
-    output_arr[1] = Constant;
-
+    output_arr[0] = DEFAULT_INFORMATION.version;
+    output_arr[1] = DEFAULT_INFORMATION.signature;
 
     for (int i = 0; i < 2; i++)
-        command_num = FillCodeArray(output_arr + INFORMATION_MEMORY_COUNT,
+        command_num = FillCodeArray(output_arr +  SIZE_OF_HEADER_IN_BYTES,
                                     ptrs_to_code_lines_array_size, ptrs_to_code_lines_array, labels);
 
     *commands_count = command_num;
@@ -281,6 +328,29 @@ void LabelsDump(int *labels) {
     printf("\n\n-----------------------\n");
 }
 
+//-----------------------------------------------------------------------------
+
+void ErrorDump(int *error) {
+
+    printf("----------ASM DUMP----------\n\n");
+
+    if (*error & COMMAND_ASM_ERROR)
+        printf("Wrong command\n");
+
+    if (*error & REGISTER_ASM_ERROR)
+        printf("Wrong Register\n");
+
+    if (*error & NUMBER_ARGUMENT_ASM_ERROR)
+        printf("Wrong Number Argument\n");
+
+    if (*error & LABELS_ASM_ERROR)
+        printf("Wrong Label Argument\n");
+
+    if (*error & RAM_ARGUMENT_ERROR)
+        printf("Wrong RAM Argument\n");
+
+    printf("\n--------------------------\n\n");
+}
 
 //=============================================================================
 
@@ -291,7 +361,7 @@ void CreateBinaryFile(const char *file_name, int commands_count, int *output_arr
 
     FILE *output_file = fopen(file_name, "wb");
 
-    fwrite(output_arr, sizeof(int), commands_count + INFORMATION_MEMORY_COUNT, output_file);
+    fwrite(output_arr, sizeof(int), commands_count +  SIZE_OF_HEADER_IN_BYTES, output_file);
 
     fclose(output_file);
 }
@@ -300,37 +370,14 @@ void CreateBinaryFile(const char *file_name, int commands_count, int *output_arr
 
 bool CheckIfCommandHaveArgument(int command) {
 
-    switch(command) {
-        case POPREG:
-            return true;
-        case PUSHREG:
-            return true;
-        case PUSH:
-            return true;
-        case JUMP:
-            return true;
-        case JB:
-            return true;
-        case JBE:
-            return true;
-        case JA:
-            return true;
-        case JAE:
-            return true;
-        case JE:
-            return true;
-        case JNE:
-            return true;
-        case CALL:
-            return true;
-        case PUSHM:
-            return true;
-        case POPM:
-            return true;
+    for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
 
-        default:
-            return false;
-    }
+        if (commands_array[curr_num].command_number == command) {
+            if(commands_array[curr_num].agrument_type == NO_ARGUMENT)
+                return false;
+
+            return true;
+        }
 
     return false;
 }
@@ -343,11 +390,11 @@ void CreateNormalFile(const char *file_name, int commands_count, int *output_arr
 
     FILE *output_file = fopen(file_name, "w");
 
-    fprintf(output_file, "FILE VERSION: %d\n", output_arr[0]);
-    fprintf(output_file, "CODE: %d\n\n", output_arr[1]);
+    fprintf(output_file, "SPU VERSION: %d\n", output_arr[0]);
+    fprintf(output_file, "FILE SIGNATURE: %d\n\n", output_arr[1]);
 
-    for (int curr_num = INFORMATION_MEMORY_COUNT;
-         curr_num < commands_count + INFORMATION_MEMORY_COUNT; curr_num++) {      // функци€, и в ней умол€ю сделай свитч кейс
+    for (int curr_num = SIZE_OF_HEADER_IN_BYTES;
+         curr_num < commands_count + SIZE_OF_HEADER_IN_BYTES; curr_num++) {
 
         if (CheckIfCommandHaveArgument(output_arr[curr_num]))
 
@@ -359,5 +406,16 @@ void CreateNormalFile(const char *file_name, int commands_count, int *output_arr
     fclose(output_file);
 }
 
+//=============================================================================
+
+int CountStringHash(const char *curr_string) {
+
+    int len = strlen(curr_string), hash = 0;
+
+    for (int curr_num = 0; curr_num < len; curr_num++)
+        hash = (hash << 5) + curr_string[curr_num];
+
+    return hash;
+}
 
 //=============================================================================
