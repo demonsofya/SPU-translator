@@ -57,8 +57,9 @@ int CheckRegister(char *reg, int *error);
 
 //-----------------------------------------------------------------------------
 
-int CountStringHash(const char *curr_string);
+int CountStringHashDJB2(const char *curr_string);
 void CountHashTable();
+bool CheckStrings();
 
 //=============================================================================
 
@@ -74,6 +75,20 @@ enum AsmErrors {
 
 };
 
+
+//-----------------------------------------------------------------------------
+
+struct ASM_t {
+
+    int *output_arr;
+    int command_num;
+    int labels[LABELS_ARRAY_SIZE];
+    char **ptrs_to_code_lines_array;
+    int ptrs_to_code_lines_array_size;
+    char *curr_command;
+    int curr_command_num;
+    int *curr_error;
+};
 
 //-----------------------------------------------------------------------------
 
@@ -99,8 +114,8 @@ static Command_t commands_array[COMMANDS_COUNT] = {
     {"JE",      JUMP_EQUAL_COMMAND,         NUMBER_ARGUMENT,     },
     {"JNE",     JUMP_NOT_EQUAL_COMMAND,     NUMBER_ARGUMENT,     },
     {"CALL",    CALL_FUNCTION_COMMAND,      NUMBER_ARGUMENT,     },
-    {"PUSHM",   PUSH_MEMORY_COMMAND,        RAM_ARGUMENT,        },
     {"RET",     RETERN_COMMAND,             NO_ARGUMENT,         },
+    {"PUSHM",   PUSH_MEMORY_COMMAND,        RAM_ARGUMENT,        },
     {"POPM",    POP_MEMORY_COMMAND,         RAM_ARGUMENT,        },
     {"DRAW",    DRAW_COMMAND,               NO_ARGUMENT,         }
 

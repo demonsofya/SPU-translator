@@ -36,9 +36,10 @@ char **GetStringsPtrArrayFromFile(const char *file_name, int *ptrs_to_code_lines
 void CountHashTable() {
 
     for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
-        commands_array[curr_num].hash = CountStringHash(commands_array[curr_num].command_name);
+        commands_array[curr_num].hash = CountStringHashDJB2(commands_array[curr_num].command_name);
 
-
+    for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++)
+        registers_array[curr_num].reg_hash = CountStringHashDJB2(registers_array[curr_num].reg_name);
 }
 
 //=============================================================================
@@ -53,12 +54,16 @@ void FillCurrentOpcode(int *output_arr, char *command_string,
 
 ON_DEBUG(printf("Curr command is %s\n", command_string));
 
-    int curr_hash = CountStringHash(command_string);
+    int curr_hash = CountStringHashDJB2(command_string);
 
     for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
 
         //if (strcmp(command_string, commands_array[curr_num].command_name) == 0) {
         if (commands_array[curr_num].hash == curr_hash) {
+
+            if (strcmp(command_string, commands_array[curr_num].command_name) != 0)
+                continue;
+
             output_arr[(*command_num)++] = commands_array[curr_num].command_number;
 
             if (commands_array[curr_num].agrument_type == NUMBER_ARGUMENT)
@@ -121,7 +126,7 @@ void FillCommandWithNumberArgument(int *output_arr, char *command_string,
         char curr_string_label[10] = "";
         readen_elements_count = sscanf(command_string, " %*c%s", curr_string_label);
 
-        curr_number = CountStringHash(curr_string_label);
+        curr_number = CountStringHashDJB2(curr_string_label) % 10;   //
         //readen_elements_count = sscanf(command_string, " %*c%d", &curr_number);
         output_arr[(*command_num)++] = labels[curr_number];
 
@@ -217,7 +222,7 @@ void FillLabel(char *command, int *labels, int command_num, int *counter, int *e
     char curr_string_label[10] = "";
     readen_elements_count = sscanf(command, " %*c%s", curr_string_label);
 
-    label_number = CountStringHash(curr_string_label);
+    label_number = CountStringHashDJB2(curr_string_label)% 10;
         //readen_elements_count = sscanf(command_string, " %*c%d", &curr_number);
         //output_arr[(*command_num)++] = labels[curr_number];
 
@@ -280,7 +285,19 @@ int FillCodeArray(int *output_arr, int ptrs_to_code_lines_array_size,
 
 //-----------------------------------------------------------------------------
 
-bool CheckStrings();
+bool CheckStrings() {
+    bool result = true;
+
+    for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
+        if (commands_array[curr_num].command_number != curr_num) {
+            printf("Error. Position in array is %d, command is %s, command number is %d\n",
+                    curr_num, commands_array[curr_num].command_name, commands_array[curr_num].command_number);
+
+            result = false;
+        }
+
+    return result;
+}
 
 int *CreateCodeArray(const char *input_file_name, int *commands_count) {
 
@@ -408,12 +425,15 @@ void CreateNormalFile(const char *file_name, int commands_count, int *output_arr
 
 //=============================================================================
 
-int CountStringHash(const char *curr_string) {
+int CountStringHashDJB2(const char *curr_string) {
 
-    int len = strlen(curr_string), hash = 0;
+    int hash = 0, curr_num = 0;
 
-    for (int curr_num = 0; curr_num < len; curr_num++)
+    while (curr_string[curr_num] != '\0') {
         hash = (hash << 5) + curr_string[curr_num];
+
+        curr_num++;
+    }
 
     return hash;
 }
