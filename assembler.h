@@ -13,12 +13,65 @@
     #define ON_DEBUG(...)
 #endif
 
+//-----------------------------------------------------------------------------
+
+
+#define Break_If_Spu_Error(error)                                         \
+    {                                                                   \
+        int error = SpuVerify(spu);                                     \
+        if (error != 0) {                                               \
+            ErrorDump(error, __FILE__, __FUNCTION__, __LINE__);             \
+            break;                                                      \
+        }                                                               \
+    }
+
+#define Return_If_Spu_Error(spu)                                        \
+    {                                                                   \
+        int error = SpuVerify(spu);                                     \
+        if (error != 0) {                                               \
+            ErrorDump(error, __FILE__, __FUNCTION__, __LINE__);             \
+            return error;                                               \
+        }                                                               \
+    }
+
+#define Return_Spu_Error(spu)                                           \
+    {                                                                   \
+        int error = SpuVerify(spu);                                     \
+        if (error != 0)                                                 \
+            SpuDump(spu, __FILE__, __FUNCTION__, __LINE__);             \
+        return error;                                                   \
+    }
+
 const int LABELS_ARRAY_SIZE = 10;
+const int MAX_COMMAND_SIZE = 20;
+
+//-----------------------------------------------------------------------------
+
+struct StringLabel_t {
+
+    int label_hash;
+    char label_name[MAX_COMMAND_SIZE];
+    int label_num;
+};
+
+//-----------------------------------------------------------------------------
+
+struct ASM_t {
+
+    int *output_arr;
+    int command_num;
+    int labels[LABELS_ARRAY_SIZE];
+    char **ptrs_to_code_lines_array;
+    int ptrs_to_code_lines_array_size;
+    char curr_command_string[MAX_COMMAND_SIZE];
+    int curr_command_num;
+    StringLabel_t string_labels_array[LABELS_ARRAY_SIZE];
+};
 
 //-----------------------------------------------------------------------------
 
 char **GetStringsPtrArrayFromFile(const char *file_name, int *ptr_array_size);
-void FillCurrentOpcode(int *output_arr, char *command_string, int *labels, int *command_num);
+void FillCurrentOpcode(ASM_t *asm_stuct, char *argument_string, int *error);
 
 //-----------------------------------------------------------------------------
 
@@ -27,14 +80,13 @@ void FillCurrentOpcode(int *output_arr, char *command_string, int *labels,
 
 //-----------------------------------------------------------------------------
 
-void FillCommandWithNumberArgument(int *output_arr, char *command_string,
-                                   int *labels, int *command_num, int *error);
-int FillCodeArray(int *output_arr, int ptr_array_size, char **text_ptr_array, int *labels);
-void FillCommandWithRegisterArgiment(int *output_arr, char *command_string,
-                                     int *labels, int *command_num, int *error);
-void FillCommandWithRAMArgiment(int *output_arr, char *command_string,
-                                int *labels, int *command_num, int *error);
-void FillLabel(char *command, int *labels, int command_num, int *counter, int *error);
+int FillCodeArray(ASM_t *asm_struct);
+
+void FillCommandWithNumberArgument(ASM_t *asm_struct, char *arg_command_string, int *error);
+void FillCommandWithRegisterArgiment(ASM_t *asm_struct, char *arg_command_string, int *error);
+void FillCommandWithRAMArgiment(ASM_t *asm_struct, char *arg_command_string, int *error);
+
+void FillLabel(int *counter, ASM_t *asm_struct, int *error);
 
 //-----------------------------------------------------------------------------
 
@@ -71,23 +123,9 @@ enum AsmErrors {
     NUMBER_ARGUMENT_ASM_ERROR   = 1 << 2,
     LABELS_ASM_ERROR            = 1 << 3,
     RAM_ARGUMENT_ERROR          = 1 << 4,
-    SINTAXYS_ASM_ERROR          = 1 << 5
+    SINTAXYS_ASM_ERROR          = 1 << 5,
+    POINTER_ASM_ERROR           = 1 << 6
 
-};
-
-
-//-----------------------------------------------------------------------------
-
-struct ASM_t {
-
-    int *output_arr;
-    int command_num;
-    int labels[LABELS_ARRAY_SIZE];
-    char **ptrs_to_code_lines_array;
-    int ptrs_to_code_lines_array_size;
-    char *curr_command;
-    int curr_command_num;
-    int *curr_error;
 };
 
 //-----------------------------------------------------------------------------
@@ -120,6 +158,11 @@ static Command_t commands_array[COMMANDS_COUNT] = {
     {"DRAW",    DRAW_COMMAND,               NO_ARGUMENT,         }
 
 };
+
+
+//-----------------------------------------------------------------------------
+
+//static StringLabel_t string_labels_array[LABELS_ARRAY_SIZE] = {};
 
 //-----------------------------------------------------------------------------
 

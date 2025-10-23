@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <ctype.h>
 
 #include "lib/onegin/buffer.h"
 //#include "buffer.h"
@@ -20,6 +21,8 @@ char **GetStringsPtrArrayFromFile(const char *file_name, int *ptrs_to_code_lines
     char *buffer = GetBuffer(file_name, &file_size);
 
     assert(buffer);
+ON_DEBUG(printf("%s\n\n", buffer));
+
 
     *ptrs_to_code_lines_array_size = StringsCount(buffer);
     char **strings_ptr_array = GetStringPtrArray(buffer, *ptrs_to_code_lines_array_size);
@@ -44,36 +47,35 @@ void CountHashTable() {
 
 //=============================================================================
 
-void FillCurrentOpcode(int *output_arr, char *command_string,
-                       int *labels, int *command_num, char *argument_string, int *error) {
+void FillCurrentOpcode(ASM_t *asm_struct, char *argument_string, int *error) {
 
-    assert(output_arr);
-    assert(command_string);
-    assert(labels);
-    assert(command_num);
+    assert(error);
+    assert(asm_struct);
+    assert(argument_string);
 
-ON_DEBUG(printf("Curr command is %s\n", command_string));
+ON_DEBUG(printf("Curr command is %s\n", asm_struct->curr_command_string));
 
-    int curr_hash = CountStringHashDJB2(command_string);
+    int curr_hash = CountStringHashDJB2(asm_struct->curr_command_string);
 
     for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
 
         //if (strcmp(command_string, commands_array[curr_num].command_name) == 0) {
         if (commands_array[curr_num].hash == curr_hash) {
 
-            if (strcmp(command_string, commands_array[curr_num].command_name) != 0)
+            if (strcmp(asm_struct->curr_command_string, commands_array[curr_num].command_name) != 0)
                 continue;
 
-            output_arr[(*command_num)++] = commands_array[curr_num].command_number;
+            asm_struct->output_arr[asm_struct->command_num++] =
+                                                            commands_array[curr_num].command_number;
 
             if (commands_array[curr_num].agrument_type == NUMBER_ARGUMENT)
-                FillCommandWithNumberArgument(output_arr, argument_string, labels, command_num, error);
+                FillCommandWithNumberArgument(asm_struct, argument_string, error);
 
             else if (commands_array[curr_num].agrument_type == REGISTER_ARGUMENT)
-                FillCommandWithRegisterArgiment(output_arr, argument_string, labels, command_num, error);
+                FillCommandWithRegisterArgiment(asm_struct, argument_string, error);
 
             else if (commands_array[curr_num].agrument_type == RAM_ARGUMENT)
-                FillCommandWithRAMArgiment(output_arr, argument_string, labels, command_num, error);
+                FillCommandWithRAMArgiment(asm_struct, argument_string, error);
 
             return;
 
@@ -86,15 +88,22 @@ ON_DEBUG(printf("Curr command is %s\n", command_string));
 
 int CheckRegister(char *reg, int *error) {
 
+    if (error == NULL)
+        return REGISTER_ASM_ERROR;
+
     if (reg == NULL)
         return REGISTER_ASM_ERROR;
+
+        int curr_hash = CountStringHashDJB2(reg);
 
 ON_DEBUG(printf("Register is %s, size is %d\n\n", reg, strlen(reg)));
 
     for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++) {
 
-        if (strcmp(reg, registers_array[curr_num].reg_name) == 0)
-            return registers_array[curr_num].reg_num;
+        if (curr_hash == registers_array[curr_num].reg_hash)
+
+            if (strcmp(reg, registers_array[curr_num].reg_name) == 0)
+                return registers_array[curr_num].reg_num;
 
 ON_DEBUG(printf("Curr register number %d is %s\n", curr_num, registers_array[curr_num].reg_name));
 
@@ -109,74 +118,92 @@ ON_DEBUG(printf("Error with register. Register is %s\n", reg));
 //=============================================================================
 
 
-void FillCommandWithNumberArgument(int *output_arr, char *command_string,
-                                   int *labels, int *command_num, int *error) {
+void FillCommandWithNumberArgument(ASM_t *asm_struct, char *arg_command_string, int *error) {
 
-    assert(output_arr);
-    assert(command_string);
-    assert(labels);
-    assert(command_num);
+    assert(asm_struct);
+    assert(arg_command_string); // Катя: добавлен ассерт
+    assert(error);
 
     int curr_number = 0, readen_elements_count = 0;
 
     char label = '\0';
-    sscanf(command_string, " %c", &label);
+    sscanf(arg_command_string, " %c", &label);
 
     if (label == ':') {
         char curr_string_label[10] = "";
-        readen_elements_count = sscanf(command_string, " %*c%s", curr_string_label);
+        readen_elements_count = sscanf(arg_command_string, " %*c%s", curr_string_label);
 
-        curr_number = CountStringHashDJB2(curr_string_label) % 10;   //
-        //readen_elements_count = sscanf(command_string, " %*c%d", &curr_number);
-        output_arr[(*command_num)++] = labels[curr_number];
+ON_DEBUG(printf("Current Label argument is %s\n", curr_string_label));
+
+        if (isdigit(curr_string_label[0])) {
+            readen_elements_count = sscanf(arg_command_string, " %*c%d", &curr_number);
+            asm_struct->output_arr[asm_struct->command_num++] = asm_struct->labels[curr_number];
+
+ON_DEBUG(printf("Label number argument is %d\n", curr_number));
+
+        } else {
+            int curr_label_hash = CountStringHashDJB2(curr_string_label);
+
+            for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++) {
+                if (curr_label_hash == asm_struct->string_labels_array[curr_num].label_hash) {
+                    if (strcmp(curr_string_label, asm_struct->string_labels_array[curr_num].label_name) == 0) {
+                        asm_struct->output_arr[asm_struct->command_num++] =
+                                    asm_struct->string_labels_array[curr_num].label_num;
+
+                        return;
+                    }
+                }
+            }
+
+ON_DEBUG(printf("Label string argument is %s\n", curr_string_label));
+
+        }
+
 
     } else {
-        readen_elements_count = sscanf(command_string, "%d", &curr_number);
-        output_arr[(*command_num)++] = curr_number;
+        readen_elements_count = sscanf(arg_command_string, "%d", &curr_number);
+        asm_struct->output_arr[asm_struct->command_num++] = curr_number;
     }
 
-    if (readen_elements_count != 1)
+    if (readen_elements_count == 0)
         *error |= NUMBER_ARGUMENT_ASM_ERROR;
 }
 
 
 //-----------------------------------------------------------------------------
 
-void FillCommandWithRegisterArgiment(int *output_arr, char *command_string,
-                                     int *labels, int *command_num, int *error) {
+void FillCommandWithRegisterArgiment(ASM_t *asm_struct, char *arg_command_string, int *error) {
 
-    assert(output_arr);
-    assert(command_string);
-    assert(labels);
-    assert(command_num);
+    assert(asm_struct);
+    assert(error);
 
     int readen_elements_count = 0;
 
-    if (*command_num < 0)
+    if (asm_struct->command_num < 0) {
+        *error |= COMMAND_ASM_ERROR;
         return;
+    }
 
     char reg[10] = "";
 
-    readen_elements_count = sscanf(command_string, " %s", reg);
+    readen_elements_count = sscanf(arg_command_string, " %s", reg);
 
     if (readen_elements_count != 1)
         *error |= REGISTER_ASM_ERROR;
 
-    output_arr[(*command_num)++] = CheckRegister(reg, error);
+    asm_struct->output_arr[asm_struct->command_num++] = CheckRegister(reg, error);
 }
 
 
 //-----------------------------------------------------------------------------
 
-void FillCommandWithRAMArgiment(int *output_arr, char *command_string,
-                                int *labels, int *command_num, int *error) {
+void FillCommandWithRAMArgiment(ASM_t *asm_struct, char *arg_command_string, int *error) {
 
-    assert(output_arr);
-    assert(command_string);
-    assert(labels);
-    assert(command_num);
+    assert(asm_struct);
+    assert(arg_command_string); // Катя: добавлен ассерт
+    assert(error);
 
-    if (*command_num < 0)
+    if (asm_struct->command_num < 0)
         return;
 
     char reg[10] = "";
@@ -184,16 +211,17 @@ void FillCommandWithRAMArgiment(int *output_arr, char *command_string,
 
     int readen_elements_count = 0;
 
-    readen_elements_count = sscanf(command_string, " [%[A-Z]%c", reg, &end_symbol);
+    readen_elements_count = sscanf(arg_command_string, " [%[A-Z]%c", reg, &end_symbol);
+    // Катя: проверка существования имени регистра (ZX - не выдаст ошибку)  // Соня: выдаст)
 ON_DEBUG(printf("Curr RAM register is %s\n", reg));
 
     if (end_symbol != ']' || readen_elements_count != 2) {
         *error |= SINTAXYS_ASM_ERROR;
 ON_DEBUG(printf("Wrong register sintaxys.\n"));
-        (*command_num)++;
+        asm_struct->command_num++;
 
     } else {
-        output_arr[(*command_num)++] = CheckRegister(reg, error);
+        asm_struct->output_arr[asm_struct->command_num++] = CheckRegister(reg, error);
     }
 }
 
@@ -211,76 +239,97 @@ bool CheckIfCommandLabel(char *command) {
 
 //-----------------------------------------------------------------------------
 
-void FillLabel(char *command, int *labels, int command_num, int *counter, int *error) {
+void FillLabel(int *counter, ASM_t *asm_struct, int *error) {
 
-    assert(command);
-    assert(labels);
-    assert(counter);
+    assert(error);
+    assert(asm_struct);
 
     int label_number = 0, readen_elements_count = 0;
 
-    char curr_string_label[10] = "";
-    readen_elements_count = sscanf(command, " %*c%s", curr_string_label);
+    char curr_string_label[MAX_COMMAND_SIZE] = "";
+    readen_elements_count = sscanf(asm_struct->curr_command_string, "%*c%s", curr_string_label);
 
-    label_number = CountStringHashDJB2(curr_string_label)% 10;
-        //readen_elements_count = sscanf(command_string, " %*c%d", &curr_number);
-        //output_arr[(*command_num)++] = labels[curr_number];
+    if (isdigit(curr_string_label[0])) {
+        readen_elements_count = sscanf(asm_struct->curr_command_string, "%*c%d", &label_number);
+        asm_struct->labels[label_number] = asm_struct->command_num;
+
+ON_DEBUG(printf("Label number is %d, current command is %d\n", label_number, asm_struct->command_num));
+
+    } else {
+        int curr_label_hash = CountStringHashDJB2(curr_string_label);
+
+        for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++) {
+            if (curr_label_hash != asm_struct->string_labels_array[curr_num].label_hash) {
+
+                asm_struct->string_labels_array[curr_num].label_num = asm_struct->command_num;
+                strncpy(asm_struct->string_labels_array[curr_num].label_name,
+                        curr_string_label, MAX_COMMAND_SIZE);
+                asm_struct->string_labels_array[curr_num].label_hash = CountStringHashDJB2(curr_string_label);
+
+
+                (*counter)++;
+                return;
+            }
+        }
+
+ON_DEBUG(printf("Label name is %s, current command is %d\n", curr_string_label, asm_struct->command_num));
+
+    }
 
     if (readen_elements_count != 1)
         *error |= LABELS_ASM_ERROR;
 
-    labels[label_number] = command_num;
+    //asm_struct->labels[label_number] = asm_struct->command_num;
     (*counter)++;
-
-ON_DEBUG(printf("Label number is %d, current command is %d\n", label_number, command_num));
 
 }
 
 //=============================================================================
 
-int FillCodeArray(int *output_arr, int ptrs_to_code_lines_array_size,
-                  char **ptrs_to_code_lines_array, int *labels) {
+int FillCodeArray(ASM_t *asm_struct) {
 
-    assert(output_arr);
-    assert(ptrs_to_code_lines_array_size);
-    assert(labels);
+    assert(asm_struct);
 
     CountHashTable();
 
-    char command_string[10] = "";
-    int counter = 0, command_num = 0;
+    //char command_string[10] = "";
+    int counter = 0;
+    asm_struct->command_num = 0;
 
-    while (counter < ptrs_to_code_lines_array_size) {
+    CheckStrings();
+
+    while (counter < asm_struct->ptrs_to_code_lines_array_size) {
         int command_size = 0;
-        sscanf(ptrs_to_code_lines_array[counter], "%s%n", command_string, &command_size);
+        int readen_elements = sscanf(asm_struct->ptrs_to_code_lines_array[counter], "%s%n",
+               asm_struct->curr_command_string, &command_size);
 
         int error = NO_ASM_ERROR;
 
-        if (strcmp(command_string, "") == 0) {
+        if (readen_elements == 0 || isspace(asm_struct->ptrs_to_code_lines_array[counter][0])) {
             counter++;
             continue;
         }
 
-        if (CheckIfCommandLabel(command_string)) {
-            FillLabel(command_string, labels, command_num, &counter, &error);
+        if (CheckIfCommandLabel(asm_struct->curr_command_string)) {
+            FillLabel(&counter, asm_struct, &error);
             continue;
         }
 
-        FillCurrentOpcode(output_arr, command_string, labels, &command_num,
-                          ptrs_to_code_lines_array[counter] + command_size, &error);
+        FillCurrentOpcode(asm_struct, asm_struct->ptrs_to_code_lines_array[counter] + command_size,
+                          &error);
 
         if (error != NO_ASM_ERROR) {
             ErrorDump(&error);
-            LabelsDump(labels);
+            LabelsDump(asm_struct->labels);
 
-            return command_num;
+            return asm_struct->command_num;
         }
 
         counter++;
 
     }
 
-    return command_num;
+    return asm_struct->command_num;
 }
 
 //-----------------------------------------------------------------------------
@@ -306,29 +355,34 @@ int *CreateCodeArray(const char *input_file_name, int *commands_count) {
 
     int labels[LABELS_ARRAY_SIZE] = {};
 
-    int ptrs_to_code_lines_array_size = 0;
-    char **ptrs_to_code_lines_array = GetStringsPtrArrayFromFile(input_file_name,
-                                                         &ptrs_to_code_lines_array_size);
+    ASM_t asm_struct = {};
 
-ON_DEBUG(printf("Strings count is %d\n\n", ptrs_to_code_lines_array_size));
+    asm_struct.ptrs_to_code_lines_array_size = 0;
+    asm_struct.ptrs_to_code_lines_array = GetStringsPtrArrayFromFile(input_file_name,
+                                                         &asm_struct.ptrs_to_code_lines_array_size);
 
-    int *output_arr = (int *) calloc(ptrs_to_code_lines_array_size * 2 + SIZE_OF_HEADER_IN_BYTES,
+ON_DEBUG(printf("Strings count is %d\n\n", asm_struct.ptrs_to_code_lines_array_size));
+
+    asm_struct.output_arr = (int *) calloc(asm_struct.ptrs_to_code_lines_array_size * 2 + SIZE_OF_HEADER_IN_BYTES,
                                      sizeof(int));
 
-    int command_num = 0;
+    //int command_num = 0;
 
-    output_arr[0] = DEFAULT_INFORMATION.version;
-    output_arr[1] = DEFAULT_INFORMATION.signature;
+    asm_struct.output_arr[0] = DEFAULT_INFORMATION.version;
+    asm_struct.output_arr[1] = DEFAULT_INFORMATION.signature;
+
+    asm_struct.output_arr += SIZE_OF_HEADER_IN_BYTES;
 
     for (int i = 0; i < 2; i++)
-        command_num = FillCodeArray(output_arr +  SIZE_OF_HEADER_IN_BYTES,
-                                    ptrs_to_code_lines_array_size, ptrs_to_code_lines_array, labels);
+        asm_struct.command_num = FillCodeArray(&asm_struct);
 
-    *commands_count = command_num;
+    asm_struct.output_arr -= SIZE_OF_HEADER_IN_BYTES;
+
+    *commands_count = asm_struct.command_num;
 
 ON_DEBUG(LabelsDump(labels));
 
-    return output_arr;
+    return asm_struct.output_arr;
 }
 
 //=============================================================================
@@ -427,10 +481,10 @@ void CreateNormalFile(const char *file_name, int commands_count, int *output_arr
 
 int CountStringHashDJB2(const char *curr_string) {
 
-    int hash = 0, curr_num = 0;
+    int hash = 5381, curr_num = 0;    // магическое число
 
-    while (curr_string[curr_num] != '\0') {
-        hash = (hash << 5) + curr_string[curr_num];
+    while (curr_string[curr_num]) {
+        hash = ((hash << 5) + hash) + curr_string[curr_num];   // *33
 
         curr_num++;
     }
