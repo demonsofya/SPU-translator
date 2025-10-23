@@ -1,8 +1,6 @@
 #ifndef ASSEMBLER_H_INCLUDED
 #define ASSEMBLER_H_INCLUDED
 
-#include "commands.h"
-
 //-----------------------------------------------------------------------------
 
 #define DEBUG
@@ -15,31 +13,35 @@
 
 //-----------------------------------------------------------------------------
 
+#define COMPILE_ASM
+int CountStringHashDJB2(const char *curr_string);
 
-#define Break_If_Spu_Error(error)                                         \
-    {                                                                   \
-        int error = SpuVerify(spu);                                     \
-        if (error != 0) {                                               \
+#include "commands.h"
+
+//-----------------------------------------------------------------------------
+
+
+#define Break_If_ASM_Error(error)                                           \
+    {                                                                       \
+        if (error != 0) {                                                   \
             ErrorDump(error, __FILE__, __FUNCTION__, __LINE__);             \
-            break;                                                      \
-        }                                                               \
+            break;                                                          \
+        }                                                                   \
     }
 
-#define Return_If_Spu_Error(spu)                                        \
-    {                                                                   \
-        int error = SpuVerify(spu);                                     \
-        if (error != 0) {                                               \
+#define Return_If_ASM_Error(spu)                                            \
+    {                                                                       \
+        if (error != 0) {                                                   \
             ErrorDump(error, __FILE__, __FUNCTION__, __LINE__);             \
-            return error;                                               \
-        }                                                               \
+            return error;                                                   \
+        }                                                                   \
     }
 
-#define Return_Spu_Error(spu)                                           \
-    {                                                                   \
-        int error = SpuVerify(spu);                                     \
-        if (error != 0)                                                 \
-            SpuDump(spu, __FILE__, __FUNCTION__, __LINE__);             \
-        return error;                                                   \
+#define Return_ASM_Error(error)                                             \
+    {                                                                       \
+        if (error != 0)                                                     \
+            ErrorDump(error, __FILE__, __FUNCTION__, __LINE__);             \
+        return error;                                                       \
     }
 
 const int LABELS_ARRAY_SIZE = 10;
@@ -66,6 +68,7 @@ struct ASM_t {
     char curr_command_string[MAX_COMMAND_SIZE];
     int curr_command_num;
     StringLabel_t string_labels_array[LABELS_ARRAY_SIZE];
+    int string_labels_counter;
 };
 
 //-----------------------------------------------------------------------------
@@ -109,7 +112,6 @@ int CheckRegister(char *reg, int *error);
 
 //-----------------------------------------------------------------------------
 
-int CountStringHashDJB2(const char *curr_string);
 void CountHashTable();
 bool CheckStrings();
 

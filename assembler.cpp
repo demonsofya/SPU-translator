@@ -144,7 +144,7 @@ ON_DEBUG(printf("Label number argument is %d\n", curr_number));
         } else {
             int curr_label_hash = CountStringHashDJB2(curr_string_label);
 
-            for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++) {
+            for (int curr_num = 0; curr_num < LABELS_ARRAY_SIZE; curr_num++) {
                 if (curr_label_hash == asm_struct->string_labels_array[curr_num].label_hash) {
                     if (strcmp(curr_string_label, asm_struct->string_labels_array[curr_num].label_name) == 0) {
                         asm_struct->output_arr[asm_struct->command_num++] =
@@ -256,21 +256,13 @@ void FillLabel(int *counter, ASM_t *asm_struct, int *error) {
 ON_DEBUG(printf("Label number is %d, current command is %d\n", label_number, asm_struct->command_num));
 
     } else {
-        int curr_label_hash = CountStringHashDJB2(curr_string_label);
 
-        for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++) {
-            if (curr_label_hash != asm_struct->string_labels_array[curr_num].label_hash) {
+        asm_struct->string_labels_array[asm_struct->string_labels_counter].label_num = asm_struct->command_num;
+        strncpy(asm_struct->string_labels_array[asm_struct->string_labels_counter].label_name,
+                curr_string_label, MAX_COMMAND_SIZE);
+        asm_struct->string_labels_array[asm_struct->string_labels_counter].label_hash = CountStringHashDJB2(curr_string_label);
 
-                asm_struct->string_labels_array[curr_num].label_num = asm_struct->command_num;
-                strncpy(asm_struct->string_labels_array[curr_num].label_name,
-                        curr_string_label, MAX_COMMAND_SIZE);
-                asm_struct->string_labels_array[curr_num].label_hash = CountStringHashDJB2(curr_string_label);
-
-
-                (*counter)++;
-                return;
-            }
-        }
+        asm_struct->string_labels_counter++;
 
 ON_DEBUG(printf("Label name is %s, current command is %d\n", curr_string_label, asm_struct->command_num));
 
