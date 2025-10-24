@@ -15,6 +15,20 @@
     #define NEW_COMMAND NEW_COMMAND_SPU
 #endif
 
+//-----------------------------------------------------------------------------
+
+#define NEW_REGISTER_ASM(name, number) {name, number, CountStringHashDJB2(name)}
+#define NEW_REGISTER_SPU(name, number) {number}
+
+#ifdef COMPILE_ASM
+    #define NEW_REGISTER NEW_REGISTER_ASM
+#endif
+
+#ifdef COMPILE_SPU
+    #define NEW_REGISTER NEW_REGISTER_SPU
+#endif
+
+//=============================================================================
 
 struct Header_Info_t {
 
@@ -120,9 +134,15 @@ enum DEFAULT_INFORMATION {
 
 struct Register_t {
 
-    char reg_name[10];
-    int reg_num;
-    int reg_hash;
+    #ifdef COMPILE_ASM
+        char reg_name[10];
+        int reg_num;
+        int reg_hash;
+    #endif
+
+    #ifdef COMPILE_SPU
+        int reg_num;
+    #endif
 };
 
 enum Registers {
@@ -135,13 +155,13 @@ enum Registers {
     REGISTERS_COUNT = 5
 };
 
-static Register_t registers_array[REGISTERS_COUNT] = {
+const Register_t registers_array[REGISTERS_COUNT] = {
 
-    {"AX", AX},
-    {"BX", BX},
-    {"CX", CX},
-    {"DX", DX},
-    {"RV", RV}
+    NEW_REGISTER("AX", AX),
+    NEW_REGISTER("BX", BX),
+    NEW_REGISTER("CX", CX),
+    NEW_REGISTER("DX", DX),
+    NEW_REGISTER("RV", RV)
 };
 
 #endif // COMMANDS_H_INCLUDED

@@ -10,6 +10,8 @@
 #include "assembler.h"
 #include "string.h"
 
+#define LOGFILE stderr
+
 //=============================================================================
 
 char **GetStringsPtrArrayFromFile(const char *file_name, int *ptrs_to_code_lines_array_size) {
@@ -32,18 +34,6 @@ ON_DEBUG(printf("%s\n\n", buffer));
     assert(strings_ptr_array);
 
     return strings_ptr_array;
-}
-
-//=============================================================================
-
-
-void CountHashTable() {
-
-    //for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
-    //    commands_array[curr_num].hash = CountStringHashDJB2(commands_array[curr_num].command_name);
-
-    for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++)
-        registers_array[curr_num].reg_hash = CountStringHashDJB2(registers_array[curr_num].reg_name);
 }
 
 
@@ -128,39 +118,26 @@ void FillCommandWithNumberArgument(ASM_t *asm_struct, char *arg_command_string, 
 
     int curr_number = 0, readen_elements_count = 0;
 
-    char label = '\0';
-    sscanf(arg_command_string, " %c", &label);
-
-    if (label == ':') {
-        char curr_string_label[10] = "";
+    if (CheckIfCommandLabel(arg_command_string + 1)) {  // скип пробела
+        char curr_string_label[MAX_COMMAND_SIZE] = "";
         readen_elements_count = sscanf(arg_command_string, " %*c%s", curr_string_label);
 
 ON_DEBUG(printf("Current Label argument is %s\n", curr_string_label));
 
-        if (isdigit(curr_string_label[0])) {
-            readen_elements_count = sscanf(arg_command_string, " %*c%d", &curr_number);
-            asm_struct->output_arr[asm_struct->command_num++] = asm_struct->labels[curr_number];
+        int curr_label_hash = CountStringHashDJB2(curr_string_label);
 
-ON_DEBUG(printf("Label number argument is %d\n", curr_number));
+        for (int curr_num = 0; curr_num < LABELS_ARRAY_SIZE; curr_num++) {
+            if (curr_label_hash == asm_struct->string_labels_array[curr_num].label_hash) {
+                if (strcmp(curr_string_label, asm_struct->string_labels_array[curr_num].label_name) == 0) {
+                    asm_struct->output_arr[asm_struct->command_num++] =
+                                asm_struct->string_labels_array[curr_num].label_num;
 
-        } else {
-            int curr_label_hash = CountStringHashDJB2(curr_string_label);
-
-            for (int curr_num = 0; curr_num < LABELS_ARRAY_SIZE; curr_num++) {
-                if (curr_label_hash == asm_struct->string_labels_array[curr_num].label_hash) {
-                    if (strcmp(curr_string_label, asm_struct->string_labels_array[curr_num].label_name) == 0) {
-                        asm_struct->output_arr[asm_struct->command_num++] =
-                                    asm_struct->string_labels_array[curr_num].label_num;
-
-                        return;
-                    }
+                    return;
                 }
             }
-
-ON_DEBUG(printf("Label string argument is %s\n", curr_string_label));
-
         }
 
+ON_DEBUG(printf("Label string argument is %s\n", curr_string_label));
 
     } else {
         readen_elements_count = sscanf(arg_command_string, "%d", &curr_number);
@@ -246,29 +223,21 @@ void FillLabel(int *counter, ASM_t *asm_struct, int *error) {
     assert(error);
     assert(asm_struct);
 
-    int label_number = 0, readen_elements_count = 0;
+    int readen_elements_count = 0;
 
     char curr_string_label[MAX_COMMAND_SIZE] = "";
     readen_elements_count = sscanf(asm_struct->curr_command_string, "%*c%s", curr_string_label);
 
-    if (isdigit(curr_string_label[0])) {
-        readen_elements_count = sscanf(asm_struct->curr_command_string, "%*c%d", &label_number);
-        asm_struct->labels[label_number] = asm_struct->command_num;
+    asm_struct->string_labels_array[asm_struct->string_labels_counter].label_num = asm_struct->command_num;
 
-ON_DEBUG(printf("Label number is %d, current command is %d\n", label_number, asm_struct->command_num));
+    strncpy(asm_struct->string_labels_array[asm_struct->string_labels_counter].label_name,
+            curr_string_label, MAX_COMMAND_SIZE);
 
-    } else {
+    asm_struct->string_labels_array[asm_struct->string_labels_counter].label_hash = CountStringHashDJB2(curr_string_label);
 
-        asm_struct->string_labels_array[asm_struct->string_labels_counter].label_num = asm_struct->command_num;
-        strncpy(asm_struct->string_labels_array[asm_struct->string_labels_counter].label_name,
-                curr_string_label, MAX_COMMAND_SIZE);
-        asm_struct->string_labels_array[asm_struct->string_labels_counter].label_hash = CountStringHashDJB2(curr_string_label);
-
-        asm_struct->string_labels_counter++;
+    asm_struct->string_labels_counter++;
 
 ON_DEBUG(printf("Label name is %s, current command is %d\n", curr_string_label, asm_struct->command_num));
-
-    }
 
     if (readen_elements_count != 1)
         *error |= LABELS_ASM_ERROR;
@@ -284,7 +253,7 @@ int FillCodeArray(ASM_t *asm_struct) {
 
     assert(asm_struct);
 
-    CountHashTable();
+    //CountHashTable();
 
     //char command_string[10] = "";
     int counter = 0;
@@ -313,8 +282,8 @@ int FillCodeArray(ASM_t *asm_struct) {
                           &error);
 
         if (error != NO_ASM_ERROR) {
-            ErrorDump(&error);
-            LabelsDump(asm_struct->labels);
+            ASMDump(&error, asm_struct, __FILE__, __FUNCTION__, __LINE__);
+            LabelsDump(asm_struct->string_labels_array, asm_struct->string_labels_counter);
 
             return asm_struct->command_num;
         }
@@ -329,12 +298,15 @@ int FillCodeArray(ASM_t *asm_struct) {
 //-----------------------------------------------------------------------------
 
 bool CheckStrings() {
+
     bool result = true;
 
     for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
         if (commands_array[curr_num].command_number != curr_num) {
-            printf("Error. Position in array is %d, command is %s, command number is %d\n",
-                    curr_num, commands_array[curr_num].command_name, commands_array[curr_num].command_number);
+            fprintf(LOGFILE, "%s:%d error. Position in array is %d, command is %s, command number is %d\n%s\n",
+                    commands_array[curr_num].file_name_of_source_code, commands_array[curr_num].line_number_in_source_code,
+                    curr_num, commands_array[curr_num].command_name, commands_array[curr_num].command_number,
+                    commands_array[curr_num].line_content_in_source_code);
 
             result = false;
         }
@@ -342,12 +314,14 @@ bool CheckStrings() {
     return result;
 }
 
+//-----------------------------------------------------------------------------
+
 int *CreateCodeArray(const char *input_file_name, int *commands_count) {
 
     assert(input_file_name);
     assert(commands_count);
 
-    int labels[LABELS_ARRAY_SIZE] = {};
+    //int labels[LABELS_ARRAY_SIZE] = {};
 
     ASM_t asm_struct = {};
 
@@ -360,7 +334,6 @@ ON_DEBUG(printf("Strings count is %d\n\n", asm_struct.ptrs_to_code_lines_array_s
     asm_struct.output_arr = (int *) calloc(asm_struct.ptrs_to_code_lines_array_size * 2 + SIZE_OF_HEADER_IN_BYTES,
                                      sizeof(int));
 
-    //int command_num = 0;
 
     asm_struct.output_arr[0] = DEFAULT_INFORMATION.version;
     asm_struct.output_arr[1] = DEFAULT_INFORMATION.signature;
@@ -374,47 +347,99 @@ ON_DEBUG(printf("Strings count is %d\n\n", asm_struct.ptrs_to_code_lines_array_s
 
     *commands_count = asm_struct.command_num;
 
-ON_DEBUG(LabelsDump(labels));
+ON_DEBUG(LabelsDump(asm_struct.string_labels_array, asm_struct.string_labels_counter));
 
     return asm_struct.output_arr;
 }
 
 //=============================================================================
 
-void LabelsDump(int *labels) {
+void LabelsDump(StringLabel_t *string_labels_array, int labels_counter) {
 
-    assert(labels);
+    if (string_labels_array == NULL) {
+        fprintf(LOGFILE, "ERROR: labels pointer is wrong.\n\n");
+        return;
+    }
 
-    printf("------LABELS---------\n\n");
+    fprintf(LOGFILE, "--------LABELS---------\n\nLabels counter is %d\n", labels_counter);
 
     for (int curr_num = 0; curr_num < LABELS_ARRAY_SIZE; curr_num++)
-        printf("[%d] ", labels[curr_num]);
+        fprintf(LOGFILE, "[%d] %s\n", string_labels_array[curr_num].label_num,
+                                      string_labels_array[curr_num].label_name);
 
-    printf("\n\n-----------------------\n");
+    fprintf(LOGFILE, "\n-----------------------\n");
 }
 
 //-----------------------------------------------------------------------------
 
-void ErrorDump(int *error) {
+int ASMVerify(ASM_t *asm_struct) {
 
-    printf("----------ASM DUMP----------\n\n");
+    int error = NO_ASM_ERROR;
+
+    if (asm_struct == 0)
+        return POINTER_ASM_ERROR;
+
+    if (asm_struct->output_arr == 0)
+        error |= OUTPUT_ARRAY_POINTER_ASM_ERROR;
+
+    if (asm_struct->ptrs_to_code_lines_array == 0)
+        error |= INPUT_ARRAY_POINTER_ASM_ERROR;
+
+    if (asm_struct->ptrs_to_code_lines_array_size <= 0)
+        error |= INPUT_ARRAY_SIZE_ASM_ERROR;
+
+    if (asm_struct->string_labels_counter < 0)
+        error |= LABELS_ASM_ERROR;
+
+    return error;
+}
+
+//-----------------------------------------------------------------------------
+
+void ASMDump(int *error, ASM_t *asm_struct, const char *file_name, const char *func_name, int line) {
+
+    fprintf(LOGFILE, "============ASM DUMP=============\n\n");
+
+    if (error == NULL || asm_struct == NULL) {
+        fprintf(LOGFILE, "ERROR: Wrong pointer. DUMP ended.\n");
+        return;
+    }
+
+    if (file_name == NULL || func_name == NULL)
+        fprintf(LOGFILE, "ERROR: Wrong file_name or func_name pointer");
+    else
+        fprintf(LOGFILE, "ASMDump() from %s at %s:%d:\n", file_name, func_name, line);
 
     if (*error & COMMAND_ASM_ERROR)
-        printf("Wrong command\n");
+        fprintf(LOGFILE, "ERROR: Wrong command\n");
 
     if (*error & REGISTER_ASM_ERROR)
-        printf("Wrong Register\n");
+        fprintf(LOGFILE, "ERROR: Wrong Register\n");
 
     if (*error & NUMBER_ARGUMENT_ASM_ERROR)
-        printf("Wrong Number Argument\n");
+        fprintf(LOGFILE, "ERROR: Wrong Number Argument\n");
 
     if (*error & LABELS_ASM_ERROR)
-        printf("Wrong Label Argument\n");
+        fprintf(LOGFILE, "Wrong Label Argument\n");
 
     if (*error & RAM_ARGUMENT_ERROR)
-        printf("Wrong RAM Argument\n");
+        fprintf(LOGFILE, "Wrong RAM Argument\n");
 
-    printf("\n--------------------------\n\n");
+    if (*error & SINTAXYS_ASM_ERROR)
+        fprintf(LOGFILE, "ERROR: Incorrect sintaxys\n");
+
+    LabelsDump(asm_struct->string_labels_array, asm_struct->string_labels_counter);
+
+    int asm_error = ASMVerify(asm_struct);
+
+    fprintf(LOGFILE, "ASM struct [%p]\ncommand counter is %d, output array [%p]\n\n", asm_struct, asm_struct->command_num, asm_struct->output_arr);
+    fprintf(LOGFILE, "\noutput array\n");
+    if (!(asm_error & OUTPUT_ARRAY_POINTER_ASM_ERROR))
+        for (int i = 0; i < asm_struct->command_num; i++)
+            fprintf(LOGFILE, "[%d] = %d\n", i, asm_struct->output_arr[i]);
+
+
+    printf("\n========================\n\n");
 }
 
 //=============================================================================

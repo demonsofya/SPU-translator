@@ -21,27 +21,21 @@ int CountStringHashDJB2(const char *curr_string);
 //-----------------------------------------------------------------------------
 
 
-#define Break_If_ASM_Error(error)                                           \
-    {                                                                       \
-        if (error != 0) {                                                   \
-            ErrorDump(error, __FILE__, __FUNCTION__, __LINE__);             \
-            break;                                                          \
-        }                                                                   \
+#define Return_If_ASM_Error(asm_struct, error)                                      \
+    {                                                                               \
+        int asm_error = ASMVerify(asm_struct);                                      \
+        if (error != NO_ASM_ERROR || asm_error != NO_ASM_ERROR) {                   \
+            ASMDump(error, asm_struct, __FILE__, __FUNCTION__, __LINE__);           \
+            return error;                                                           \
+        }                                                                           \
     }
 
-#define Return_If_ASM_Error(spu)                                            \
-    {                                                                       \
-        if (error != 0) {                                                   \
-            ErrorDump(error, __FILE__, __FUNCTION__, __LINE__);             \
-            return error;                                                   \
-        }                                                                   \
-    }
-
-#define Return_ASM_Error(error)                                             \
-    {                                                                       \
-        if (error != 0)                                                     \
-            ErrorDump(error, __FILE__, __FUNCTION__, __LINE__);             \
-        return error;                                                       \
+#define Return_ASM_Error(asm_struct, error)                                         \
+    {                                                                               \
+        int asm_error = ASMVerify(asm_struct);                                      \
+        if (error != NO_ASM_ERROR || asm_error != NO_ASM_ERROR)                     \
+            ASMDump(error, asm_struct, __FILE__, __FUNCTION__, __LINE__);           \
+        return error;                                                               \
     }
 
 const int LABELS_ARRAY_SIZE = 10;
@@ -62,11 +56,12 @@ struct ASM_t {
 
     int *output_arr;
     int command_num;
-    int labels[LABELS_ARRAY_SIZE];
+
     char **ptrs_to_code_lines_array;
     int ptrs_to_code_lines_array_size;
+
     char curr_command_string[MAX_COMMAND_SIZE];
-    int curr_command_num;
+
     StringLabel_t string_labels_array[LABELS_ARRAY_SIZE];
     int string_labels_counter;
 };
@@ -93,8 +88,9 @@ void FillLabel(int *counter, ASM_t *asm_struct, int *error);
 
 //-----------------------------------------------------------------------------
 
-void LabelsDump(int *labels);
-void ErrorDump(int *error);
+void LabelsDump(StringLabel_t *string_labels_array, int labels_counter);
+int ASMVerify(ASM_t *asm_struct);
+void ASMDump(int *error, ASM_t *asm_struct, const char *file_name, const char *func_name, int line);
 
 //-----------------------------------------------------------------------------
 
@@ -112,21 +108,23 @@ int CheckRegister(char *reg, int *error);
 
 //-----------------------------------------------------------------------------
 
-void CountHashTable();
 bool CheckStrings();
 
 //=============================================================================
 
 enum AsmErrors {
 
-    NO_ASM_ERROR                = 0,
-    COMMAND_ASM_ERROR           = 1 << 0,
-    REGISTER_ASM_ERROR          = 1 << 1,
-    NUMBER_ARGUMENT_ASM_ERROR   = 1 << 2,
-    LABELS_ASM_ERROR            = 1 << 3,
-    RAM_ARGUMENT_ERROR          = 1 << 4,
-    SINTAXYS_ASM_ERROR          = 1 << 5,
-    POINTER_ASM_ERROR           = 1 << 6
+    NO_ASM_ERROR                    = 0,
+    COMMAND_ASM_ERROR               = 1 << 0,
+    REGISTER_ASM_ERROR              = 1 << 1,
+    NUMBER_ARGUMENT_ASM_ERROR       = 1 << 2,
+    LABELS_ASM_ERROR                = 1 << 3,
+    RAM_ARGUMENT_ERROR              = 1 << 4,
+    SINTAXYS_ASM_ERROR              = 1 << 5,
+    POINTER_ASM_ERROR               = 1 << 6,
+    OUTPUT_ARRAY_POINTER_ASM_ERROR  = 1 << 7,
+    INPUT_ARRAY_POINTER_ASM_ERROR   = 1 << 8,
+    INPUT_ARRAY_SIZE_ASM_ERROR      = 1 << 9
 
 };
 
