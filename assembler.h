@@ -16,7 +16,7 @@
 #define COMPILE_ASM
 int CountStringHashDJB2(const char *curr_string);
 
-#include "commands.h"
+#include "../include/commands.h"
 
 //-----------------------------------------------------------------------------
 
@@ -132,6 +132,7 @@ enum AsmErrors {
 
 //-----------------------------------------------------------------------------
 
+/*
 static Command_t commands_array[COMMANDS_COUNT] = {
 
     {"HLT",     HALT_COMMAND,               NO_ARGUMENT,         },
@@ -160,6 +161,7 @@ static Command_t commands_array[COMMANDS_COUNT] = {
     {"DRAW",    DRAW_COMMAND,               NO_ARGUMENT,         }
 
 };
+*/
 
 
 //-----------------------------------------------------------------------------

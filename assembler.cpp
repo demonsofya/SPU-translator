@@ -6,7 +6,7 @@
 
 #include "lib/onegin/buffer.h"
 //#include "buffer.h"
-#include "../include/commands.h"
+//#include "../include/commands.h"
 #include "assembler.h"
 #include "string.h"
 
@@ -36,14 +36,16 @@ ON_DEBUG(printf("%s\n\n", buffer));
 
 //=============================================================================
 
+
 void CountHashTable() {
 
-    for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
-        commands_array[curr_num].hash = CountStringHashDJB2(commands_array[curr_num].command_name);
+    //for (int curr_num = 0; curr_num < COMMANDS_COUNT; curr_num++)
+    //    commands_array[curr_num].hash = CountStringHashDJB2(commands_array[curr_num].command_name);
 
     for (int curr_num = 0; curr_num < REGISTERS_COUNT; curr_num++)
         registers_array[curr_num].reg_hash = CountStringHashDJB2(registers_array[curr_num].reg_name);
 }
+
 
 //=============================================================================
 

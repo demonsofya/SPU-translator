@@ -4,8 +4,8 @@
 
 //-----------------------------------------------------------------------------
 
-#define NEW_COMMAND_ASM(name, number, arg_type, funt_ptr) {name, number, arg_type, CountStringHashDJB2(name), __FILE__, __LINE__, {#name, #number, #arg_type, #hash, #__FILE__, #__LINE__} }
-#define NEW_COMMAND_SPU(name, number, arg_type, funt_ptr) {number, func_ptr, __FILE__, __LINE__, {#number, #func_ptr, __FILE__, __LINE__} }
+#define NEW_COMMAND_ASM(name, number, arg_type, funt_ptr) {name, number, arg_type, CountStringHashDJB2(name), __FILE__, __LINE__, "{#name, #number, #arg_type, CountStringHashDJB2(name), __FILE__, __LINE__}" }
+#define NEW_COMMAND_SPU(name, number, arg_type, funt_ptr) {number, func_ptr, __FILE__, __LINE__, "{#number, #func_ptr, __FILE__, __LINE__}" }
 
 #ifdef COMPILE_ASM
     #define NEW_COMMAND NEW_COMMAND_ASM
@@ -32,18 +32,15 @@ struct Command_t {
         int     command_number;
         int     agrument_type;
         int     hash;
-        const char *file_name_of_source_code
-        int         line_number_in_source_code
-        const char *line_content_in_source_code
     #endif
 
     #ifdef COMPILE_SPU
         int     command_number;
         int     (*command_function_ptr) (SPU_t *spu, int command);
-        const char *file_name_of_source_code
-        int         line_number_in_source_code
-        const char *line_content_in_source_code
     #endif
+        const char *file_name_of_source_code;
+        int         line_number_in_source_code;
+        const char *line_content_in_source_code;
 }; // массив структур
 
 enum Commands {
@@ -84,7 +81,7 @@ enum Commans_arguments_types {
 };
 
 
-static Command_t commands_array[COMMANDS_COUNT] = {
+const Command_t commands_array[COMMANDS_COUNT] = {
 
     NEW_COMMAND("HLT",     HALT_COMMAND,               NO_ARGUMENT,         NULL                    ),
     NEW_COMMAND("PUSH",    PUSH_COMMAND,               NUMBER_ARGUMENT,     RunPush                 ),
