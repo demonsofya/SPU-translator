@@ -39,13 +39,12 @@ ON_DEBUG(printf("%s\n\n", buffer));
 
 //=============================================================================
 
-void FillCurrentOpcode(ASM_t *asm_struct, char *argument_string, int *error) {
+int FillCurrentOpcode(ASM_t *asm_struct, char *argument_string, int *error) {
 
-    assert(error);
-    assert(asm_struct);
+    Return_If_ASM_Error(*asm_struct, *error);
     assert(argument_string);
 
-ON_DEBUG(printf("Curr command is %s\n", asm_struct->curr_command_string));
+ON_DEBUG(printf("Curr command is %s number is %d\n", asm_struct->curr_command_string, asm_struct->command_num));
 
     int curr_hash = CountStringHashDJB2(asm_struct->curr_command_string);
 
@@ -69,11 +68,13 @@ ON_DEBUG(printf("Curr command is %s\n", asm_struct->curr_command_string));
             else if (commands_array[curr_num].agrument_type == RAM_ARGUMENT)
                 FillCommandWithRAMArgiment(asm_struct, argument_string, error);
 
-            return;
+            Return_ASM_Error(*asm_struct, *error);
 
         }
 
     *error |= COMMAND_ASM_ERROR;
+
+    Return_ASM_Error(*asm_struct, *error);
 }
 
 //=============================================================================
@@ -110,11 +111,10 @@ ON_DEBUG(printf("Error with register. Register is %s\n", reg));
 //=============================================================================
 
 
-void FillCommandWithNumberArgument(ASM_t *asm_struct, char *arg_command_string, int *error) {
+int FillCommandWithNumberArgument(ASM_t *asm_struct, char *arg_command_string, int *error) {
 
-    assert(asm_struct);
+    Return_If_ASM_Error(*asm_struct, *error);
     assert(arg_command_string); // Катя: добавлен ассерт
-    assert(error);
 
     int curr_number = 0, readen_elements_count = 0;
 
@@ -127,15 +127,19 @@ ON_DEBUG(printf("Current Label argument is %s\n", curr_string_label));
         int curr_label_hash = CountStringHashDJB2(curr_string_label);
 
         for (int curr_num = 0; curr_num < LABELS_ARRAY_SIZE; curr_num++) {
+
             if (curr_label_hash == asm_struct->string_labels_array[curr_num].label_hash) {
+
                 if (strcmp(curr_string_label, asm_struct->string_labels_array[curr_num].label_name) == 0) {
                     asm_struct->output_arr[asm_struct->command_num++] =
                                 asm_struct->string_labels_array[curr_num].label_num;
 
-                    return;
+                    Return_ASM_Error(*asm_struct, *error);
                 }
             }
         }
+
+        asm_struct->command_num++;
 
 ON_DEBUG(printf("Label string argument is %s\n", curr_string_label));
 
@@ -146,22 +150,18 @@ ON_DEBUG(printf("Label string argument is %s\n", curr_string_label));
 
     if (readen_elements_count == 0)
         *error |= NUMBER_ARGUMENT_ASM_ERROR;
+
+    Return_ASM_Error(*asm_struct, *error);
 }
 
 
 //-----------------------------------------------------------------------------
 
-void FillCommandWithRegisterArgiment(ASM_t *asm_struct, char *arg_command_string, int *error) {
+int FillCommandWithRegisterArgiment(ASM_t *asm_struct, char *arg_command_string, int *error) {
 
-    assert(asm_struct);
-    assert(error);
+    Return_If_ASM_Error(*asm_struct, *error);
 
     int readen_elements_count = 0;
-
-    if (asm_struct->command_num < 0) {
-        *error |= COMMAND_ASM_ERROR;
-        return;
-    }
 
     char reg[10] = "";
 
@@ -171,19 +171,17 @@ void FillCommandWithRegisterArgiment(ASM_t *asm_struct, char *arg_command_string
         *error |= REGISTER_ASM_ERROR;
 
     asm_struct->output_arr[asm_struct->command_num++] = CheckRegister(reg, error);
+
+    Return_ASM_Error(*asm_struct, *error);
 }
 
 
 //-----------------------------------------------------------------------------
 
-void FillCommandWithRAMArgiment(ASM_t *asm_struct, char *arg_command_string, int *error) {
+int FillCommandWithRAMArgiment(ASM_t *asm_struct, char *arg_command_string, int *error) {
 
-    assert(asm_struct);
-    assert(arg_command_string); // Катя: добавлен ассерт
-    assert(error);
-
-    if (asm_struct->command_num < 0)
-        return;
+    Return_If_ASM_Error(*asm_struct, *error);
+    assert(arg_command_string);
 
     char reg[10] = "";
     char end_symbol = '\0';
@@ -202,6 +200,8 @@ ON_DEBUG(printf("Wrong register sintaxys.\n"));
     } else {
         asm_struct->output_arr[asm_struct->command_num++] = CheckRegister(reg, error);
     }
+
+    Return_ASM_Error(*asm_struct, *error);
 }
 
 //=============================================================================
@@ -218,10 +218,9 @@ bool CheckIfCommandLabel(char *command) {
 
 //-----------------------------------------------------------------------------
 
-void FillLabel(int *counter, ASM_t *asm_struct, int *error) {
+int FillLabel(int *counter, ASM_t *asm_struct, int *error) {
 
-    assert(error);
-    assert(asm_struct);
+    Return_If_ASM_Error(*asm_struct, *error);
 
     int readen_elements_count = 0;
 
@@ -245,6 +244,7 @@ ON_DEBUG(printf("Label name is %s, current command is %d\n", curr_string_label, 
     //asm_struct->labels[label_number] = asm_struct->command_num;
     (*counter)++;
 
+    Return_ASM_Error(*asm_struct, *error);
 }
 
 //=============================================================================
@@ -258,8 +258,9 @@ int FillCodeArray(ASM_t *asm_struct) {
     //char command_string[10] = "";
     int counter = 0;
     asm_struct->command_num = 0;
+    asm_struct->string_labels_counter = 0;
 
-    CheckStrings();
+    CheckCommandsArray();
 
     while (counter < asm_struct->ptrs_to_code_lines_array_size) {
         int command_size = 0;
@@ -281,12 +282,7 @@ int FillCodeArray(ASM_t *asm_struct) {
         FillCurrentOpcode(asm_struct, asm_struct->ptrs_to_code_lines_array[counter] + command_size,
                           &error);
 
-        if (error != NO_ASM_ERROR) {
-            ASMDump(&error, asm_struct, __FILE__, __FUNCTION__, __LINE__);
-            LabelsDump(asm_struct->string_labels_array, asm_struct->string_labels_counter);
-
-            return asm_struct->command_num;
-        }
+        Return_If_ASM_Error(*asm_struct, error);
 
         counter++;
 
@@ -297,7 +293,7 @@ int FillCodeArray(ASM_t *asm_struct) {
 
 //-----------------------------------------------------------------------------
 
-bool CheckStrings() {
+bool CheckCommandsArray() {
 
     bool result = true;
 

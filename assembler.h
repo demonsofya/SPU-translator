@@ -23,18 +23,18 @@ int CountStringHashDJB2(const char *curr_string);
 
 #define Return_If_ASM_Error(asm_struct, error)                                      \
     {                                                                               \
-        int asm_error = ASMVerify(asm_struct);                                      \
+        int asm_error = ASMVerify(&asm_struct);                                      \
         if (error != NO_ASM_ERROR || asm_error != NO_ASM_ERROR) {                   \
-            ASMDump(error, asm_struct, __FILE__, __FUNCTION__, __LINE__);           \
+            ASMDump(&error, &asm_struct, __FILE__, __FUNCTION__, __LINE__);           \
             return error;                                                           \
         }                                                                           \
     }
 
 #define Return_ASM_Error(asm_struct, error)                                         \
     {                                                                               \
-        int asm_error = ASMVerify(asm_struct);                                      \
+        int asm_error = ASMVerify(&asm_struct);                                      \
         if (error != NO_ASM_ERROR || asm_error != NO_ASM_ERROR)                     \
-            ASMDump(error, asm_struct, __FILE__, __FUNCTION__, __LINE__);           \
+            ASMDump(&error, &asm_struct, __FILE__, __FUNCTION__, __LINE__);           \
         return error;                                                               \
     }
 
@@ -69,22 +69,17 @@ struct ASM_t {
 //-----------------------------------------------------------------------------
 
 char **GetStringsPtrArrayFromFile(const char *file_name, int *ptr_array_size);
-void FillCurrentOpcode(ASM_t *asm_stuct, char *argument_string, int *error);
-
-//-----------------------------------------------------------------------------
-
-void FillCurrentOpcode(int *output_arr, char *command_string, int *labels,
-                       int *command_num, char *argument_string, int *error);
+int FillCurrentOpcode(ASM_t *asm_stuct, char *argument_string, int *error);
 
 //-----------------------------------------------------------------------------
 
 int FillCodeArray(ASM_t *asm_struct);
 
-void FillCommandWithNumberArgument(ASM_t *asm_struct, char *arg_command_string, int *error);
-void FillCommandWithRegisterArgiment(ASM_t *asm_struct, char *arg_command_string, int *error);
-void FillCommandWithRAMArgiment(ASM_t *asm_struct, char *arg_command_string, int *error);
+int FillCommandWithNumberArgument(ASM_t *asm_struct, char *arg_command_string, int *error);
+int FillCommandWithRegisterArgiment(ASM_t *asm_struct, char *arg_command_string, int *error);
+int FillCommandWithRAMArgiment(ASM_t *asm_struct, char *arg_command_string, int *error);
 
-void FillLabel(int *counter, ASM_t *asm_struct, int *error);
+int FillLabel(int *counter, ASM_t *asm_struct, int *error);
 
 //-----------------------------------------------------------------------------
 
@@ -108,7 +103,7 @@ int CheckRegister(char *reg, int *error);
 
 //-----------------------------------------------------------------------------
 
-bool CheckStrings();
+bool CheckCommandsArray();
 
 //=============================================================================
 

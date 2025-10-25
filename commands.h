@@ -4,8 +4,8 @@
 
 //-----------------------------------------------------------------------------
 
-#define NEW_COMMAND_ASM(name, number, arg_type, funt_ptr) {name, number, arg_type, CountStringHashDJB2(name), __FILE__, __LINE__, "{#name, #number, #arg_type, CountStringHashDJB2(name), __FILE__, __LINE__}" }
-#define NEW_COMMAND_SPU(name, number, arg_type, funt_ptr) {number, func_ptr, __FILE__, __LINE__, "{#number, #func_ptr, __FILE__, __LINE__}" }
+#define NEW_COMMAND_ASM(name, number, arg_type, func_ptr) {name, number, arg_type, CountStringHashDJB2(name), __FILE__, __LINE__, "{#name, #number, #arg_type, CountStringHashDJB2(name), __FILE__, __LINE__}" }
+#define NEW_COMMAND_SPU(name, number, arg_type, func_ptr) {number, func_ptr, __FILE__, __LINE__, "{#number, #func_ptr, __FILE__, __LINE__}" }
 
 #ifdef COMPILE_ASM
     #define NEW_COMMAND NEW_COMMAND_ASM
@@ -144,6 +144,7 @@ struct Register_t {
         int reg_num;
     #endif
 };
+
 
 enum Registers {
 
